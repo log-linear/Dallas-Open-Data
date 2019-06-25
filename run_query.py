@@ -75,11 +75,11 @@ def parse_from_statement(query):
     :return url, endpoint, query:   str objects, domain, endpoint, and
                                     original query sans FROM statement
     """
-    url = re.search(r'www.\w+\.(com|org|net|gov|us|ca)', query)
-    endpoint = re.search(r'\w{4}-\w{4}\.json', query)
+    url = re.search(r'\w+\.\w+\.(com|org|net|gov|us|ca)', query)
+    endpoint = re.search(r'(\w{4}-\w{4})\.json', query)
     query = re.sub(r'from( +|\t+|\n+).+', '', query, flags=re.I)
 
-    return url.group(0), endpoint.group(0).replace('.json', ''), query
+    return url.group(), endpoint.group(1), query
 
 
 def main(query):
