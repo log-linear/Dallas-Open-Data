@@ -13,6 +13,7 @@ Description:    Module for running SoQL queries.  Can optionally parse
                 query file as argument.
 """
 
+import os
 import sys
 import logging
 import re
@@ -87,7 +88,7 @@ def main(query):
                         format='%(asctime)s [%(levelname)s]: %(message)s')
     cfg = ConfigParser()
     cfg.read(Path.cwd() / 'config.cfg')
-    app_token = cfg['CLIENT']['APPTOKEN']
+    app_token = os.environ.get('APPTOKEN')
 
     # Attempt to parse domain and endpoint via FROM statement
     try:
