@@ -3,8 +3,8 @@
 Author:         Victor Faner
 Date:           2019-05-26
 Description:    Module/command-line utility for running SoQL queries.
-                Implements SQL-like FROM functionality for determining
-                domain and endpoint, e.g.
+                Enables SQL-like FROM functionality in queries to
+                determine domain and endpoint, e.g.
 
                     SELECT *
 
@@ -35,49 +35,62 @@ def get_endpoint(query):
         url, endpoint, query:   str objects, domain, endpoint, and
                                 original query sans FROM statement
     """
-    url = re.search(r'\w+\.\w+\.(com|org|net|gov|us|ca)', query)
+    url = re.search(r'\w+\.\w+\.(\w{2,3})', query)
     endpoint = re.search(r'(\w{4}-\w{4})\.json', query)
     query = re.sub(r'from( +|\t+|\n+).+', '', query, flags=re.I)
 
     return url.group(), endpoint.group(1), query
 
 
-def main(query):
+def run_query(query):
+    """
+    Wrapper for running a SoQL query
+
+    :param query:                   str, SoQL query
+    :return results, metadata:      dict, list, raw results and metadata
+                                    as returned from calls to
+                                    Socrata.get() and
+                                    Socrata.get_metadata(), respectively
+
+    """
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s]: %(message)s')
     app_token = os.environ.get('APPTOKEN')
 
     try:
-        url, endpoint, query = get_endpoint(query)
+        url, endpoint, parsed_query = get_endpoint(query)
     except AttributeError:
-        logging.debug('Unknown endpoint.')
+        logging.warning('Unknown endpoint.')
         raise SystemExit
 
     with Socrata(url, app_token) as client:
         logging.info(f'Connected to {client.domain}')
 
         logging.info('Fetching metadata')
-        raw_metadata = client.get_metadata(endpoint)
+        metadata = client.get_metadata(endpoint)
 
-        logging.info('Querying dataset')
-        raw_results = client.get(endpoint, query=query)
+        logging.info('Running query')
+        print(f'\n{query}\n')
+        results = client.get(endpoint, query=parsed_query)
 
         logging.info('Connection closed')
 
-    return raw_results, raw_metadata
+    return results, metadata
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(levelname)s]: %(message)s')
     try:
         query_file = sys.argv[1]
     except IndexError:
-        logging.warn('No query specified')
+        logging.warning('No query specified')
         raise SystemExit
 
     with open(query_file) as f:
         query = f.read()
 
-    raw_results, raw_metadata = main(query)
+    raw_results, raw_metadata = run_query(query)
 
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s]: %(message)s')
@@ -87,7 +100,7 @@ if __name__ == '__main__':
     metadata_df = pd.DataFrame(parse_metadata(raw_metadata))
 
     logging.info('Parsing datatypes')
-    dtypes = get_dtypes(metadata_df)
+    dtypes = get_dtypes(raw_metadata)
 
     results_df = get_results_df(raw_results, dtypes)
 

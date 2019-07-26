@@ -1,57 +1,64 @@
 #!/usr/bin/env python3
-import logging
-import sqlite3
-import glob
-import os
+"""
+Author:         Victor Faner
+Date:           2019-07-25
+Description:    Various functions for parsing SoQL query results
+"""
 import json
-from pathlib import Path
 
 import pandas as pd
-from sodapy import Socrata
 
 
 def parse_location(location):
     """
-    Get results from a SoQL query
+    Parse SoQL Location objects of form
 
-    :param client:      Socrata client object,
-    :param endpoint:    str, API endpoint to query
-    :param query:       str, SoQL-formatted query
-    :return:            DataFrame, queried results table
+        {'human_address': '{"address": "10230 VISTADALE DR",
+                            "city": "DALLAS",
+                            "state": "TX",
+                            "zip": "75238"}',
+         'latitude': '32.888392',
+         'longitude': '-96.707833'}
+
+    into a tabular format of form
+
+        {'address': '10230 VISTADALE DR',
+         'city': 'DALLAS',
+         'latitude': '32.888392',
+         'longitude': '-96.707833',
+         'state': 'TX',
+         'zip': '75238'}
+
+    :param location:            dict, SoQL Location object
+    :return parsed_location:    dict, parsed SoQL Location object
     """
-    parsed_location = {
-        'latitude': None,
-        'longitude': None,
-        'address': None,
-        'city': None,
-        'state': None,
-        'zip': None,
-    }
+    parsed_location = {}
     address_keys = [
         'address',
         'city',
         'state',
         'zip',
     ]
-    for key in parsed_location.keys():
+    for key in location.keys():
         try:
             if key == 'human_address':
                 for a_key in address_keys:
-                    parsed_location[key] = json.loads(location[key])[a_key]
+                    parsed_location[a_key] = json.loads(location[key])[a_key]
             else:
-                parsed_location[key] = json.loads(location[key])
+                parsed_location[key] = location[key]
         except KeyError:
             parsed_location[key] = None
+
     return parsed_location
 
 
 def parse_metadata(raw_metadata):
     """
-    Get metadata from a given dataset
+    Parse relevant metadata into a tabular format
 
-    :param client:      Socrata client object
-    :param endpoint:    str, API endpoint to query
-    :return:            DataFrame, queried metadata
+    :param raw_metadata:    dict, raw metadata as returned by
+                            Socrata.get_metadata()
+    :return:                pd.DataFrame, queried metadata
     """
     parsed_metadata = {
         'field_name': [],
@@ -71,28 +78,42 @@ def parse_metadata(raw_metadata):
     return parsed_metadata
 
 
-def get_dtypes(parsed_metadata):
+def get_dtypes(raw_metadata):
+    """
+    Get dict of field names with SoQL data types as keys.
+
+    :param parsed_metadata:     dict, parsed metadata from
+                                parse_metadata function
+    :return dtypes:             dict of field names and data types
+    """
     dtypes = {}
-    for i in range(len(parsed_metadata['field_name'])):
-        dtypes[parsed_metadata['field_name'][i]] = (
-            parsed_metadata['data_type'][i]
-        )
+    for column in raw_metadata['columns']:
+        dtypes[column['fieldName']] = column['dataTypeName']
 
     return dtypes
 
 
 def get_results_df(raw_results, dtypes):
-    results_df = pd.DataFrame(raw_results)
-    locations = results_df[
-        [k for k, v in dtypes.items() if v == 'location']
-    ]
-    results_df = results_df.drop(
-        [k for k, v in dtypes.items() if v == 'location'],
-        axis=1
-    )
-    locations = pd.DataFrame(list(locations.apply(parse_location, axis=1)))
+    """
+    Wrapper function for converting raw query results into a DataFrame
 
-    results_df = results_df.merge(locations, how='left')
+    :param raw_results:     list, raw results as returned from
+                            Socrata.get()
+    :param dtypes:          dict, SoQL data type dict as returned from
+                            get_dtypes()
+    :return results_df:     pd.DatFrame
+    """
+    results_df = pd.DataFrame(raw_results)
+
+    # Handle Location datatype columns
+    for k, v in dtypes.items():
+        if v == 'location':
+            locations = pd.DataFrame(list(results_df[k].apply(parse_location)))
+            results_df = results_df.drop([k], axis=1)
+            results_df = results_df.merge(locations,
+                                          left_index=True,
+                                          right_index=True,
+                                          suffixes=('', f'_{k}'))
 
     return results_df
 
