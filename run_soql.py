@@ -117,5 +117,5 @@ if __name__ == '__main__':
     print('\nOutput\n')
     print(results_df)
 
-    csv_name = re.sub(r'\w+\/+|.sql|.soql|.txt', '', sys.argv[1])
+    csv_name = re.sub(r'\w+\/|.sql|.soql|.txt', '', sys.argv[1])
     results_df.to_csv(Path.cwd() / 'data' / f'{csv_name}.csv', index=False)

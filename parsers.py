@@ -2,7 +2,8 @@
 """
 Author:         Victor Faner
 Date:           2019-07-25
-Description:    Various functions for parsing SoQL query results
+Description:    Various functions for parsing SoQL query results into
+                a tabular format
 """
 import json
 
@@ -33,24 +34,11 @@ def parse_location(location):
     :return parsed_location:    dict, parsed SoQL Location object
     """
     parsed_location = {}
-    address_keys = [
-        'address',
-        'city',
-        'state',
-        'zip',
-    ]
+
     if isinstance(location, dict):
-        for key in location.keys():
-            try:
-                if key == 'human_address':
-                    for a_key in address_keys:
-                        parsed_location[a_key] = json.loads(
-                            location[key]
-                        )[a_key]
-                else:
-                    parsed_location[key] = location[key]
-            except KeyError:
-                parsed_location[key] = None
+        parsed_location.update(location)
+        if 'human_address' in parsed_location:
+            parsed_location.update(json.loads(parsed_location['human_address']))
 
     return parsed_location
 
