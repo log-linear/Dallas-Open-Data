@@ -39,15 +39,18 @@ def parse_location(location):
         'state',
         'zip',
     ]
-    for key in location.keys():
-        try:
-            if key == 'human_address':
-                for a_key in address_keys:
-                    parsed_location[a_key] = json.loads(location[key])[a_key]
-            else:
-                parsed_location[key] = location[key]
-        except KeyError:
-            parsed_location[key] = None
+    if isinstance(location, dict):
+        for key in location.keys():
+            try:
+                if key == 'human_address':
+                    for a_key in address_keys:
+                        parsed_location[a_key] = json.loads(
+                            location[key]
+                        )[a_key]
+                else:
+                    parsed_location[key] = location[key]
+            except KeyError:
+                parsed_location[key] = None
 
     return parsed_location
 
@@ -107,7 +110,7 @@ def get_results_df(raw_results, dtypes):
 
     # Handle Location datatype columns
     for k, v in dtypes.items():
-        if v == 'location':
+        if v == 'location' and k in results_df.columns:
             locations = pd.DataFrame(list(results_df[k].apply(parse_location)))
             results_df = results_df.drop([k], axis=1)
             results_df = results_df.merge(locations,

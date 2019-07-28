@@ -19,6 +19,7 @@ import os
 import sys
 import logging
 import re
+from pathlib import Path
 
 import pandas as pd
 from sodapy import Socrata
@@ -115,3 +116,6 @@ if __name__ == '__main__':
     print(metadata_df)
     print('\nOutput\n')
     print(results_df)
+
+    csv_name = re.sub(r'\w+\/+|.sql|.soql|.txt', '', sys.argv[1])
+    results_df.to_csv(Path.cwd() / 'data' / f'{csv_name}.csv', index=False)
