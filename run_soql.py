@@ -3,41 +3,58 @@
 Author:         Victor Faner
 Date:           2019-05-26
 Description:    Module/command-line utility for running SoQL queries.
-                Enables SQL-like FROM functionality in queries to
-                determine domain and endpoint, e.g.
+                Uses SQL-like FROM functionality to determine domain and
+                endpoint, e.g.
 
                     SELECT *
 
                     FROM https://{domain}/resource/{endpoint}.json
-
-                Command-line syntax:
-
-                    run_soql.py queries/police_incidents.sql
 """
 
 import os
-import sys
 import logging
+import argparse
 import re
 from pathlib import Path
 
 import pandas as pd
 from sodapy import Socrata
 
-from parsers import get_dtypes, parse_metadata, get_results_df
+import parsers
+
+
+def input_loop():
+    """
+    Subroutine for reading multi-line user input
+
+    :return:    str, raw user input
+    """
+    print('Enter a SoQL Query. When you are finished, end the last line of your '
+          'query with a semicolon character ";".')
+
+    lines = []
+    while True:
+        line = input()
+        if line.endswith(';'):
+            break
+        else:
+            lines.append(line)
+
+    return '\n'.join(lines)
 
 
 def get_endpoint(query):
     """
-    Parse domain and API endpoint from a SoQL query via FROM statement
+    Regex to arse domain and API endpoint from a SoQL query via FROM
+    statement
 
     :param query:               str, SoQL-formatted query
     :return
         url, endpoint, query:   str objects, domain, endpoint, and
                                 original query sans FROM statement
     """
-    url = re.search(r'\w+\.\w+\.(\w{2,3})', query)
-    endpoint = re.search(r'(\w{4}-\w{4})\.json', query)
+    url = re.search(r'\w+\.\w+\.(\w{2,3})', query, flags=re.I)
+    endpoint = re.search(r'(\w{4}-\w{4})\.json', query, flags=re.I)
     query = re.sub(r'from( +|\t+|\n+).+', '', query, flags=re.I)
 
     return url.group(), endpoint.group(1), query
@@ -79,31 +96,40 @@ def run_query(query):
     return results, metadata
 
 
-if __name__ == '__main__':
+def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s]: %(message)s')
-    try:
-        query_file = sys.argv[1]
-    except IndexError:
-        logging.warning('No query specified')
-        raise SystemExit
+    desc = """
+        Module/command-line utility for running SoQL queries. Uses SQL-like 
+        FROM functionality to determine domain and endpoint, e.g.
+        
+            SELECT *
+            
+            FROM https://{domain}/resource/{endpoint}.json
+    """
+    argp = argparse.ArgumentParser(
+        description=desc,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    argp.add_argument('-i', '--infile', help='path to SoQL input file')
+    argp.add_argument('-o', '--outfile', help='name of output .csv file')
+    args = argp.parse_args()
 
-    with open(query_file) as f:
-        query = f.read()
+    if args.infile:
+        with open(args.infile) as f:
+            query = f.read()
+    else:
+        query = input_loop()
 
     raw_results, raw_metadata = run_query(query)
 
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s [%(levelname)s]: %(message)s')
-    app_token = os.environ.get('APPTOKEN')
-
     logging.info('Parsing metadata')
-    metadata_df = pd.DataFrame(parse_metadata(raw_metadata))
+    metadata_df = pd.DataFrame(parsers.parse_metadata(raw_metadata))
 
     logging.info('Parsing datatypes')
-    dtypes = get_dtypes(raw_metadata)
+    dtypes = parsers.get_dtypes(raw_metadata)
 
-    results_df = get_results_df(raw_results, dtypes)
+    results_df = parsers.get_results_df(raw_results, dtypes)
 
     if len(results_df) < len(metadata_df):
         pd.options.display.max_rows = len(metadata_df)
@@ -117,5 +143,10 @@ if __name__ == '__main__':
     print('\nOutput\n')
     print(results_df)
 
-    csv_name = re.sub(r'\w+\/|.sql|.soql|.txt', '', sys.argv[1])
-    results_df.to_csv(Path.cwd() / 'data' / f'{csv_name}.csv', index=False)
+    if args.outfile:
+        results_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}.csv',
+                          index=False)
+
+
+if __name__ == '__main__':
+    main()
