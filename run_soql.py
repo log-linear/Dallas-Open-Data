@@ -45,7 +45,7 @@ def input_loop():
 
 def get_endpoint(query):
     """
-    Regex to arse domain and API endpoint from a SoQL query via FROM
+    Regex to parse domain and API endpoint from a SoQL query via FROM
     statement
 
     :param query:               str, SoQL-formatted query
@@ -131,21 +131,25 @@ def main():
 
     results_df = parsers.get_results_df(raw_results, dtypes)
 
-    if len(results_df) < len(metadata_df):
-        pd.options.display.max_rows = len(metadata_df)
-    elif 1000 > len(results_df) > len(metadata_df):
-        pd.options.display.max_rows = len(results_df)
-    else:
-        pd.options.display.max_rows = 1000
-
-    print('\nMetadata\n')
-    print(metadata_df)
-    print('\nOutput\n')
-    print(results_df)
-
     if args.outfile:
+        logging.info(f'Saving {args.outfile}.csv to file')
         results_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}.csv',
                           index=False)
+        metadata_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}_metadata.csv',
+                           index=False)
+
+    else:                              
+        if len(results_df) < len(metadata_df):
+            pd.options.display.max_rows = len(metadata_df)
+        elif 1000 > len(results_df) > len(metadata_df):
+            pd.options.display.max_rows = len(results_df)
+        else:
+            pd.options.display.max_rows = 1000
+    
+        print('\nMetadata\n')
+        print(metadata_df)
+        print('\nOutput\n')
+        print(results_df)
 
 
 if __name__ == '__main__':
