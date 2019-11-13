@@ -5,4 +5,8 @@
 *.idea
 *.db
 .Rproj.user
+.Rhistory
+.RData
+__pycache__
+*.Rproj
 APPTOKEN.txt
