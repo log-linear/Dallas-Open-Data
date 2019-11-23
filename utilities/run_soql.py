@@ -133,6 +133,7 @@ def main():
 
     if args.outfile:
         logging.info(f'Saving {args.outfile}.csv to file')
+        (Path.cwd() / 'data').mkdir(exist_ok=True)  # Create output dir
         results_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}.csv',
                           index=False)
         metadata_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}_metadata.csv',
