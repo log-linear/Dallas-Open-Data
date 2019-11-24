@@ -73,14 +73,16 @@ def run_query(query):
     """
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s]: %(message)s')
-    app_token = os.environ.get('APPTOKEN')
+    app_token = os.environ.get('APPTOKEN')  # Socrata API token
 
+	# Attempt to parse endpoint from query
     try:
         url, endpoint, parsed_query = get_endpoint(query)
     except AttributeError:
         logging.warning('Unknown endpoint.')
         raise SystemExit
 
+	# Query endpoint
     with Socrata(url, app_token) as client:
         logging.info(f'Connected to {client.domain}')
 
@@ -99,6 +101,8 @@ def run_query(query):
 def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s [%(levelname)s]: %(message)s')
+
+    # Define command-line arguments
     desc = """
         Module/command-line utility for running SoQL queries. Uses SQL-like 
         FROM functionality to determine domain and endpoint, e.g.
@@ -121,6 +125,7 @@ def main():
     else:
         query = input_loop()
 
+	# Run query results into DataFrames
     raw_results, raw_metadata = run_query(query)
 
     logging.info('Parsing metadata')
@@ -131,15 +136,18 @@ def main():
 
     results_df = parsers.get_results_df(raw_results, dtypes)
 
-    if args.outfile:
+    if args.outfile:  # Save results to file
         logging.info(f'Saving {args.outfile}.csv to file')
-        (Path.cwd() / 'data').mkdir(exist_ok=True)  # Create output dir
-        results_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}.csv',
+        
+        output = Path.cwd() / 'output'
+        output.mkdir(exist_ok=True)
+        
+        results_df.to_csv(output / f'{args.outfile}.csv',
                           index=False)
-        metadata_df.to_csv(Path.cwd() / 'data' / f'{args.outfile}_metadata.csv',
+        metadata_df.to_csv(output / f'{args.outfile}_metadata.csv',
                            index=False)
 
-    else:                              
+    else:  # Print to stdout
         if len(results_df) < len(metadata_df):
             pd.options.display.max_rows = len(metadata_df)
         elif 1000 > len(results_df) > len(metadata_df):
